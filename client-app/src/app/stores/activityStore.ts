@@ -3,6 +3,7 @@ import { createContext, SyntheticEvent } from 'react';
 import { IActivity } from '../models/activity';
 import 'mobx-react-lite/batchingOptOut'
 import agent from '../api/agent';
+import { history } from '../..';
 
 configure ({enforceActions : 'always'});
 class ActivityStore {
@@ -20,10 +21,10 @@ class ActivityStore {
 
     groupActivitiesByDate(activities :IActivity[]){
         const sortedActivities = activities.sort(
-            (a,b) =>Date.parse(a.date) - Date.parse(b.date)
+            (a,b) =>a.date.getTime() - b.date.getTime()
         )
         return Object.entries(sortedActivities.reduce((activities,activity)=>{
-            const date = activity.date.split('T')[0];
+            const date = activity.date.toISOString().split('T')[0];
             activities[date] = activities[date] ? [...activities[date],activity] : [activity];
             return activities;
         },{} as{[key : string]: IActivity[]} ))
@@ -35,7 +36,7 @@ class ActivityStore {
             const activities = await agent.Activities.list();
             runInAction('loading activities',()=>{
                 activities.forEach(activity =>{
-                    activity.date = activity.date.split('.')[0];
+                    activity.date = new Date(activity.date);
                     this.activityRegistry.set(activity.id,activity);
                   });
                   this.loadingInitial = false;
@@ -55,30 +56,30 @@ class ActivityStore {
         this.activity = null;
     }
 
-    @action loadActivity = async (id:string) =>{
-        let activity = this.getActivity(id);
-        if(activity){
-             this.activity = activity;
-        }
-        else{
-            this.loadingInitial = true;
-            try{
-               
-                await agent.Activities.details(id);
-                runInAction('Getting Activity',()=>{
-                    this.activity = activity;
-                    this.loadingInitial = false;
-                })
-            }catch(error){
-                runInAction('Getting Activity error',()=>{
-                    this.loadingInitial = false;
-                })
-                console.log(error);
-            }
-
-            
-        }
+    @action loadActivity = async (id: string) => {
+    let activity = this.getActivity(id);
+    if (activity) {
+      this.activity = activity;
+      return activity;
+    } else {
+      this.loadingInitial = true;
+      try {
+        activity = await agent.Activities.details(id);
+        runInAction('getting activity',() => {
+          activity.date = new Date(activity.date);
+          this.activity = activity;
+          this.activityRegistry.set(activity.id, activity);
+          this.loadingInitial = false;
+        })
+        return activity;
+      } catch (error) {
+        runInAction('get activity error', () => {
+          this.loadingInitial = false;
+        })
+        console.log(error);
+      }
     }
+  }
 
     getActivity = (id : string) => {
         return this.activityRegistry.get(id);
@@ -91,7 +92,8 @@ class ActivityStore {
             runInAction('Creating Activity',()=>{
                 this.activityRegistry.set(activity.id,activity);
                 this.submitting = false;
-            })
+            });
+            history.push(`/activities/${activity.id}`)
             
         }catch(error){
             runInAction('creating activity error',()=>{
@@ -110,8 +112,8 @@ class ActivityStore {
                     this.activityRegistry.set(activity.id,activity);
                     this.activity = activity;
                     this.submitting = false;
-                })
-               
+                });
+                history.push(`/activities/${activity.id}`)
         }
         catch(error){
             runInAction('edit activity error',()=>{
