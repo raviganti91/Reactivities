@@ -13,7 +13,7 @@ import { RootStoreContext } from '../../app/stores/rootStore';
                 <Container>
                     <Menu.Item header exact as={NavLink} to ='/'>
                         <img src="/assets/logo.png" alt="logo" style={{marginRight:'10px'}}/>
-                        Reactivities'
+                        Reactivities
                     </Menu.Item>
                     <Menu.Item name='Activities' as={NavLink} to ='/activities'/>
                     <Menu.Item>
